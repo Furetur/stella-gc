@@ -51,13 +51,11 @@ void print_gc_state(void) {
   // TODO: not implemented
 }
 
-void gc_read_barrier(void *object, int field_index) {
-  printf("Read barrier %p %d", object, field_index);
+void gc_read_barrier( __attribute__((unused)) void *object, __attribute__((unused)) int field_index) {
   total_reads += 1;
 }
 
-void gc_write_barrier(void *object, int field_index, void *contents) {
-  printf("Write barrier %p %d %p", object, field_index, contents);
+void gc_write_barrier(__attribute__((unused)) void *object, __attribute__((unused)) int field_index, __attribute__((unused)) void *contents) {
   total_writes += 1;
 }
 
@@ -66,7 +64,6 @@ void gc_push_root(void **ptr){
   if (gc_roots_top > gc_roots_max_size) { gc_roots_max_size = gc_roots_top; }
 }
 
-void gc_pop_root(void **ptr){
-  printf("Pop %p\n", (void*) ptr);
+void gc_pop_root(__attribute__((unused)) void **ptr){
   gc_roots_top--;
 }

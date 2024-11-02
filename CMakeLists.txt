@@ -20,7 +20,8 @@ target_compile_options(stella_runtime PRIVATE -Wno-everything)
 
 option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
 if(STRICT_MODE)
-    target_compile_options(stella_gc PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    target_compile_options(stella_gc PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address -fno-omit-frame-pointer)
+    string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
 endif()
 
 # ------------------------------------------------------------
