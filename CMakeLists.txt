@@ -18,9 +18,15 @@ set_target_properties(
 
 target_compile_options(stella_runtime PRIVATE -Wno-everything)
 
+# Strict Mode settings
 option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
+
+set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
+set(WERROR_OPTIONS "-Wall -Wextra -Wpedantic -Werror")
+
 if(STRICT_MODE)
-    target_compile_options(stella_gc PRIVATE -Wall -Wextra -Wpedantic -Werror -fsanitize=address -fno-omit-frame-pointer)
+    target_compile_options(stella_gc PRIVATE ${WERROR_OPTIONS} ${SANITIZER_OPTIONS})
+    target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS})
     string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
 endif()
 
@@ -57,5 +63,9 @@ if(BUILD_STELLA_PROGRAMS)
             PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/stella_examples/bin
         )
+
+        if(STRICT_MODE)
+            target_compile_options(${TARGET_NAME} PRIVATE ${SANITIZER_OPTIONS})
+        endif()
     endforeach()
 endif()
