@@ -1,0 +1,7 @@
+.vscode
+.cache
+tests/stella
+build
+cmake_install.cmake
+CMakeCache.txt
+.DS_Store
