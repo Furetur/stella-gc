@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "runtime.h"
-#include "gc.h"
+#include <runtime.h>
+#include <gc.h>
 
 /** Total allocated number of bytes (over the entire duration of the program). */
 int total_allocated_bytes = 0;
@@ -32,30 +32,32 @@ void* gc_alloc(size_t size_in_bytes) {
   return malloc(size_in_bytes);
 }
 
-void print_gc_roots() {
+void print_gc_roots(void) {
   printf("ROOTS: ");
   for (int i = 0; i < gc_roots_top; i++) {
-    printf("%p ", gc_roots[i]);
+    printf("%p ", (void*) gc_roots[i]);
   }
   printf("\n");
 }
 
-void print_gc_alloc_stats() {
+void print_gc_alloc_stats(void) {
   printf("Total memory allocation: %'d bytes (%'d objects)\n", total_allocated_bytes, total_allocated_objects);
   printf("Maximum residency:       %'d bytes (%'d objects)\n", max_allocated_bytes, max_allocated_objects);
   printf("Total memory use:        %'d reads and %'d writes\n", total_reads, total_writes);
   printf("Max GC roots stack size: %'d roots\n", gc_roots_max_size);
 }
 
-void print_gc_state() {
+void print_gc_state(void) {
   // TODO: not implemented
 }
 
 void gc_read_barrier(void *object, int field_index) {
+  printf("Read barrier %p %d", object, field_index);
   total_reads += 1;
 }
 
 void gc_write_barrier(void *object, int field_index, void *contents) {
+  printf("Write barrier %p %d %p", object, field_index, contents);
   total_writes += 1;
 }
 
@@ -65,5 +67,6 @@ void gc_push_root(void **ptr){
 }
 
 void gc_pop_root(void **ptr){
+  printf("Pop %p\n", (void*) ptr);
   gc_roots_top--;
 }

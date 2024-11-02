@@ -42,7 +42,7 @@ void gc_pop_root(void **object);
  * 4. Number of read/write barrier triggers.
  * 5. Total number of GC cycles (for each generation, if applicable).
  */
-void print_gc_alloc_stats();
+void print_gc_alloc_stats(void);
 
 /** Print GC state. Output must include at least:
  *
@@ -51,11 +51,11 @@ void print_gc_alloc_stats();
  * 3. Current allocated memory (bytes and objects).
  * 4. GC variable values (e.g. scan/next/limit variables in a copying collector).
  */
-void print_gc_state();
+void print_gc_state(void);
 
 /** Print current GC roots (addresses).
  * May be useful for debugging.
  */
-void print_gc_roots();
+void print_gc_roots(void);
 
 #endif

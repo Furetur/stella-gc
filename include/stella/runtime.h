@@ -10,7 +10,7 @@ typedef struct {
   int    object_header;     /**< Header of the object contains
                               * its TAG (see STELLA_OBJECT_HEADER_TAG) and
                               * the number of fields (see STELLA_OBJECT_HEADER_FIELD_COUNT). */
-  void*  object_fields[0];  /**< An array of object fields (0 fields for static objects). */
+  void*  object_fields[];  /**< An array of object fields (0 fields for static objects). */
 } stella_object;
 
 /** Read a field from a Stella object. Subject to a read barrier. */
@@ -76,7 +76,7 @@ int stella_object_to_nat(stella_object* obj);
 /** Pretty-print a Stella object. */
 void print_stella_object(stella_object* obj);
 /** Print some Stella runtime statistics. */
-void print_stella_stats();
+void print_stella_stats(void);
 
 /** Builtin implementation for Stella's Nat::rec. */
 stella_object* stella_object_nat_rec(stella_object* n, stella_object* z, stella_object* f);

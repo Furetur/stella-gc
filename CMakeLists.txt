@@ -16,6 +16,8 @@ set_target_properties(
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
 )
 
+target_compile_options(stella_runtime PRIVATE -Wno-everything)
+
 option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
 if(STRICT_MODE)
     target_compile_options(stella_gc PRIVATE -Wall -Wextra -Wpedantic -Werror)
