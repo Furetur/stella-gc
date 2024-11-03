@@ -3,29 +3,26 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <gc.h>
 #include <runtime.h>
-#include <string.h>
 
 #include "constants.h"
-
-#ifdef STELLA_GC_DEBUG_MODE
-#define DEBUG_PRINTF(fmt, ...) printf("[debug gc] " fmt, __VA_ARGS__)
-#else
-#define DEBUG_PRINTF(fmt, ...) ((void)0)
-#endif
+#include "debug.h"
+#include "gc_state.h"
+#include "utils.h"
 
 // ------------------------------------
 // --- GC State
 
-static bool gc_initialized = false;
+bool gc_initialized = false;
 
-static uint8_t *from_space = NULLPTR;
-static uint8_t *to_space = NULLPTR;
+uint8_t *from_space = NULLPTR;
+uint8_t *to_space = NULLPTR;
 
-static uint8_t *allocation_ptr = NULLPTR;
-static uint8_t *copy_ptr = NULLPTR;
+uint8_t *allocation_ptr = NULLPTR;
+uint8_t *copy_ptr = NULLPTR;
 
 int gc_roots_next_index = 0;
 void **gc_roots[MAX_GC_ROOTS];
@@ -49,26 +46,6 @@ void initialize_gc_if_needed(void) {
   gc_initialized = true;
 }
 
-bool is_in_space(uint8_t *space, uint8_t *ptr) {
-  return (space <= ptr) && (ptr < (space + SPACE_SIZE));
-}
-
-bool is_in_from_space(uint8_t *ptr) { return is_in_space(from_space, ptr); }
-
-bool is_in_to_space(uint8_t *ptr) { return is_in_space(to_space, ptr); }
-
-bool is_enough_space_for_object(uint8_t *space, uint8_t *location_ptr,
-                                size_t size_in_bytes) {
-  assert(space <= location_ptr);
-  assert(location_ptr <= space + SPACE_SIZE);
-  return (location_ptr + size_in_bytes) <= (space + SPACE_SIZE);
-}
-
-bool is_managed_by_gc(stella_object *obj) {
-  uint8_t *ptr = (uint8_t *)obj;
-  return is_in_to_space(ptr) || is_in_from_space(ptr);
-}
-
 void *try_alloc(size_t size_in_bytes) {
   bool is_enough_space =
       is_enough_space_for_object(from_space, allocation_ptr, size_in_bytes);
@@ -85,59 +62,6 @@ void *try_alloc(size_t size_in_bytes) {
   }
 }
 
-void mark_object(stella_object *obj, stella_object *new_obj_location) {
-  assert(is_in_from_space((uint8_t *)obj));
-  assert(is_in_to_space((uint8_t *)new_obj_location));
-  uint64_t new_location_offset = ((uint8_t *)new_obj_location) - to_space;
-  assert(new_location_offset <= UINT32_MAX);
-  uint32_t compressed_new_location_offset = (uint32_t)new_location_offset;
-  STELLA_OBJECT_INIT_TAG(obj, TAG_MOVED);
-  STELLA_OBJECT_INIT_FIELDS_COUNT(obj, compressed_new_location_offset);
-}
-
-stella_object *check_if_moved(stella_object *obj) {
-  if (is_in_to_space((uint8_t *)obj)) {
-    return obj;
-  }
-  int header = obj->object_header;
-  int tag = STELLA_OBJECT_HEADER_TAG(header);
-  if (tag != TAG_MOVED) {
-    return NULLPTR;
-  }
-  int new_location_offset = STELLA_OBJECT_HEADER_FIELD_COUNT(header);
-  uint8_t *new_location = (to_space + new_location_offset);
-  return (stella_object *)new_location;
-}
-
-// TODO: move to runtime
-size_t size_of_object(stella_object *obj) {
-  return (1 + STELLA_OBJECT_HEADER_FIELD_COUNT(obj->object_header)) *
-         sizeof(void *);
-}
-
-bool is_a_forward_pointer(stella_object *obj) {
-  stella_object *new_location = check_if_moved(obj);
-  return new_location != NULLPTR;
-}
-
-void debug_print_object(stella_object *obj) {
-  printf("[debug gc]\t\tStella object at %p: ", (void *)obj);
-  stella_object *new_location = check_if_moved(obj);
-  if (new_location != NULLPTR) {
-    printf("FORWARD POINTER TO %p", (void *)new_location);
-  } else {
-    size_t size = size_of_object(obj);
-    printf("(size %#zx) ", size);
-    print_stella_object(obj);
-    printf("\n");
-  }
-}
-
-#ifdef STELLA_GC_DEBUG_MODE
-#define DEBUG_PRINT_OBJECT(obj) debug_print_object(obj)
-#else
-#define DEBUG_PRINT_OBJECT(obj) ((void)0)
-#endif
 
 // TODO: move to runtime
 stella_object *copy_object(stella_object *obj) {
@@ -175,7 +99,7 @@ stella_object *recursive_mark_n_copy(stella_object *obj) {
     return obj;
   }
   DEBUG_PRINT_OBJECT(obj);
-  stella_object *new_location = check_if_moved(obj);
+  stella_object *new_location = check_if_is_a_forward_pointer(obj);
   if (new_location != NULLPTR) {
     DEBUG_PRINTF("<<<< <<<< recursive_mark_n_copy(%p): already moved to %p\n",
                  (void *)obj, (void *)new_location);
@@ -183,7 +107,7 @@ stella_object *recursive_mark_n_copy(stella_object *obj) {
   }
   new_location = copy_object(obj);
   verify_obj_equal(obj, new_location);
-  mark_object(obj, new_location);
+  set_forward_pointer(obj, new_location);
   // Visit fields
   int n_fields = STELLA_OBJECT_HEADER_FIELD_COUNT(new_location->object_header);
   for (int i = 0; i < n_fields; i++) {
@@ -222,6 +146,7 @@ void mark_n_copy(void) {
     void *forwarded_root = recursive_mark_n_copy(*gc_roots[i]);
     DEBUG_PRINTF("mark_n_copy: updated root %p: from %p --> to %p\n",
                  (void *)gc_roots[i], *gc_roots[i], forwarded_root);
+    assert(!is_managed_by_gc(forwarded_root) || is_in_to_space(forwarded_root));
     *gc_roots[i] = forwarded_root;
   }
   swap_spaces();
