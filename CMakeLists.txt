@@ -18,7 +18,9 @@ set_target_properties(
 
 target_compile_options(stella_runtime PRIVATE -Wno-everything)
 
-# Strict Mode settings
+# ------------------------------
+# --- Strict Mode Settings
+
 option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
 
 set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
@@ -28,6 +30,15 @@ if(STRICT_MODE)
     target_compile_options(stella_gc PRIVATE ${WERROR_OPTIONS} ${SANITIZER_OPTIONS})
     target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS} "-DSTELLA_DEBUG")
     string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
+endif()
+
+# ------------------------------
+# --- GC Debug Mode
+
+option(STELLA_GC_DEBUG_MODE "Enable GC debuging mode" OFF)
+
+if(STELLA_GC_DEBUG_MODE)
+    add_compile_definitions(STELLA_GC_DEBUG_MODE)
 endif()
 
 # ------------------------------------------------------------

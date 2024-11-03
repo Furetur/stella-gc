@@ -59,6 +59,11 @@ bool is_enough_space_for_object(uint8_t *space, uint8_t *location_ptr,
   return (location_ptr + size_in_bytes) <= (space + SPACE_SIZE);
 }
 
+bool is_managed_by_gc(stella_object *obj) {
+  uint8_t *ptr = (uint8_t *)obj;
+  return is_in_to_space(ptr) || is_in_from_space(ptr);
+}
+
 void *try_alloc(size_t size_in_bytes) {
   bool is_enough_space =
       is_enough_space_for_object(from_space, allocation_ptr, size_in_bytes);
@@ -124,6 +129,9 @@ void verify_obj_equal(stella_object *obj1, stella_object *obj2) {
 }
 
 stella_object *recursive_mark_n_copy(stella_object *obj) {
+  if (!is_managed_by_gc(obj)) {
+    return obj;
+  }
   stella_object *new_location = check_if_moved(obj);
   if (new_location != NULLPTR) {
     return new_location;
@@ -158,6 +166,9 @@ void *gc_alloc(size_t size_in_bytes) {
   initialize_gc_if_needed();
   void *result = try_alloc(size_in_bytes);
   if (result != NULLPTR) {
+#ifdef STELLA_GC_DEBUG_MODE
+    mark_n_copy();
+#endif
     return result;
   }
   mark_n_copy();
