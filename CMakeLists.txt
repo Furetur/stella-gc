@@ -22,11 +22,11 @@ target_compile_options(stella_runtime PRIVATE -Wno-everything)
 option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
 
 set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
-set(WERROR_OPTIONS "-Wall -Wextra -Wpedantic -Werror")
+set(WERROR_OPTIONS "-Wall" "-Wextra" "-Wpedantic" "-Werror")
 
 if(STRICT_MODE)
     target_compile_options(stella_gc PRIVATE ${WERROR_OPTIONS} ${SANITIZER_OPTIONS})
-    target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS})
+    target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS} "-DSTELLA_DEBUG")
     string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
 endif()
 
