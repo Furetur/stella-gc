@@ -6,6 +6,7 @@
 
 #include "gc_state.h"
 #include <runtime.h>
+#include <stdint.h>
 
 size_t size_of_object(stella_object *obj) {
   int fields_count = STELLA_OBJECT_HEADER_FIELD_COUNT(obj->object_header);
@@ -44,39 +45,6 @@ char get_object_location_kind(stella_object *obj) {
     assert(is_in_to_space((void *)obj));
     return 'T';
   }
-}
-
-// ------------------------------------
-// --- Forward pointers
-
-void set_forward_pointer(stella_object *obj, stella_object *new_obj_location) {
-  assert(is_in_from_space((uint8_t *)obj));
-  assert(is_in_to_space((uint8_t *)new_obj_location));
-  uint64_t new_location_offset = ((uint8_t *)new_obj_location) - to_space;
-  assert(new_location_offset <= UINT32_MAX);
-  uint32_t compressed_new_location_offset = (uint32_t)new_location_offset;
-  STELLA_OBJECT_INIT_TAG(obj, TAG_MOVED);
-  STELLA_OBJECT_INIT_FIELDS_COUNT(obj, compressed_new_location_offset);
-}
-
-bool is_a_forward_pointer(stella_object *obj);
-
-stella_object *check_if_is_a_forward_pointer(stella_object *obj) {
-  int header = obj->object_header;
-  int tag = STELLA_OBJECT_HEADER_TAG(header);
-  if (tag != TAG_MOVED) {
-    return NULLPTR;
-  }
-  int new_location_offset = STELLA_OBJECT_HEADER_FIELD_COUNT(header);
-  uint8_t *new_location = (to_space + new_location_offset);
-  assert(is_in_to_space(new_location));
-  assert(!is_a_forward_pointer((stella_object *)new_location));
-  return (stella_object *)new_location;
-}
-
-bool is_a_forward_pointer(stella_object *obj) {
-  stella_object *new_location = check_if_is_a_forward_pointer(obj);
-  return new_location != NULLPTR;
 }
 
 #endif // UTILS_H

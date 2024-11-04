@@ -12,6 +12,7 @@
 #include "debug.h"
 #include "gc_state.h"
 #include "utils.h"
+#include "forward_pointer.h"
 
 // ------------------------------------
 // --- GC State

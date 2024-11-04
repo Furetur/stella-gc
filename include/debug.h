@@ -1,11 +1,14 @@
 #ifndef DEBUG_H
 #define DEBUG_H
 
+#include <assert.h>
+#include <stdio.h>
+
+#include <runtime.h>
+
 #include "gc_state.h"
 #include "utils.h"
-#include <assert.h>
-#include <runtime.h>
-#include <stdio.h>
+#include "forward_pointer.h"
 
 #ifdef STELLA_GC_DEBUG_MODE
 #define DEBUG_PRINTF(fmt, ...) printf("[debug gc] " fmt, __VA_ARGS__)
