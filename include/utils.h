@@ -12,6 +12,8 @@ size_t size_of_object(stella_object *obj) {
          sizeof(void *);
 }
 
+// ------------------------------------
+// --- Object location checkers
 
 bool is_in_space(uint8_t *space, uint8_t *ptr) {
   return (space <= ptr) && (ptr < (space + SPACE_SIZE));
@@ -33,6 +35,20 @@ bool is_managed_by_gc(stella_object *obj) {
   return is_in_to_space(ptr) || is_in_from_space(ptr);
 }
 
+char get_object_location_kind(stella_object *obj) {
+    if (!is_managed_by_gc(obj)) {
+        return 'U';
+    } else if (is_in_from_space((void*)obj)) {
+        return 'F';
+    } else {
+        assert(is_in_to_space((void*) obj));
+        return 'T';
+    }
+}
+
+// ------------------------------------
+// --- Forward pointers
+
 void set_forward_pointer(stella_object *obj, stella_object *new_obj_location) {
   assert(is_in_from_space((uint8_t *)obj));
   assert(is_in_to_space((uint8_t *)new_obj_location));
@@ -43,10 +59,9 @@ void set_forward_pointer(stella_object *obj, stella_object *new_obj_location) {
   STELLA_OBJECT_INIT_FIELDS_COUNT(obj, compressed_new_location_offset);
 }
 
+bool is_a_forward_pointer(stella_object *obj);
+
 stella_object *check_if_is_a_forward_pointer(stella_object *obj) {
-  if (is_in_to_space((uint8_t *)obj)) {
-    return obj;
-  }
   int header = obj->object_header;
   int tag = STELLA_OBJECT_HEADER_TAG(header);
   if (tag != TAG_MOVED) {
@@ -54,6 +69,8 @@ stella_object *check_if_is_a_forward_pointer(stella_object *obj) {
   }
   int new_location_offset = STELLA_OBJECT_HEADER_FIELD_COUNT(header);
   uint8_t *new_location = (to_space + new_location_offset);
+  assert(is_in_to_space(new_location));
+  assert(!is_a_forward_pointer((stella_object *)new_location));
   return (stella_object *)new_location;
 }
 

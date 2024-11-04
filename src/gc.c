@@ -18,6 +18,8 @@
 
 bool gc_initialized = false;
 
+uint8_t heap[2 * SPACE_SIZE];
+
 uint8_t *from_space = NULLPTR;
 uint8_t *to_space = NULLPTR;
 
@@ -35,7 +37,7 @@ void initialize_gc_if_needed(void) {
     printf("This GC cannot handle %zx bytes...\n", SPACE_SIZE);
     exit(1);
   }
-  uint8_t *total_heap = malloc(2 * SPACE_SIZE);
+  uint8_t *total_heap = heap;
   from_space = (void *)(total_heap);
   to_space = (void *)(total_heap + SPACE_SIZE);
   allocation_ptr = from_space;
@@ -62,6 +64,13 @@ void *try_alloc(size_t size_in_bytes) {
   }
 }
 
+void verify_obj_equal(stella_object *obj1, stella_object *obj2) {
+  assert(obj1->object_header == obj2->object_header);
+  int n_fields = STELLA_OBJECT_HEADER_FIELD_COUNT(obj1->object_header);
+  for (int i = 0; i < n_fields; i++) {
+    assert(obj1->object_fields[i] == obj2->object_fields[i]);
+  }
+}
 
 // TODO: move to runtime
 stella_object *copy_object(stella_object *obj) {
@@ -74,21 +83,15 @@ stella_object *copy_object(stella_object *obj) {
   bool enough_space =
       is_enough_space_for_object(to_space, copy_ptr, object_size);
   assert(enough_space);
-  uint8_t *new_location = copy_ptr;
+  stella_object *new_location = (stella_object *)copy_ptr;
   memcpy(new_location, obj, object_size);
+  verify_obj_equal(obj, new_location);
   copy_ptr += object_size;
   DEBUG_PRINTF("copy_object(%p): copied to %p, new copy_ptr=%p\n", (void *)obj,
                (void *)new_location, (void *)copy_ptr);
-  DEBUG_PRINT_OBJECT((stella_object *)new_location);
-  return (stella_object *)new_location;
-}
-
-void verify_obj_equal(stella_object *obj1, stella_object *obj2) {
-  assert(obj1->object_header == obj2->object_header);
-  int n_fields = STELLA_OBJECT_HEADER_FIELD_COUNT(obj1->object_header);
-  for (int i = 0; i < n_fields; i++) {
-    assert(obj1->object_fields[i] == obj2->object_fields[i]);
-  }
+  assert(!is_a_forward_pointer(new_location));
+  DEBUG_PRINT_OBJECT(new_location);
+  return new_location;
 }
 
 stella_object *recursive_mark_n_copy(stella_object *obj) {
@@ -99,6 +102,12 @@ stella_object *recursive_mark_n_copy(stella_object *obj) {
     return obj;
   }
   DEBUG_PRINT_OBJECT(obj);
+  if (is_in_to_space((void *)obj)) {
+    DEBUG_PRINTF(
+        "<<<< <<<< recursive_mark_n_copy(%p): object already in to-space\n",
+        (void *)obj);
+    return obj;
+  }
   stella_object *new_location = check_if_is_a_forward_pointer(obj);
   if (new_location != NULLPTR) {
     DEBUG_PRINTF("<<<< <<<< recursive_mark_n_copy(%p): already moved to %p\n",
@@ -106,8 +115,9 @@ stella_object *recursive_mark_n_copy(stella_object *obj) {
     return new_location;
   }
   new_location = copy_object(obj);
-  verify_obj_equal(obj, new_location);
   set_forward_pointer(obj, new_location);
+  DEBUG_PRINTF("recursive_mark_n_copy(%p): Set forward pointer %p -> %p\n",
+               (void *)obj, (void *)obj, (void *)new_location);
   // Visit fields
   int n_fields = STELLA_OBJECT_HEADER_FIELD_COUNT(new_location->object_header);
   for (int i = 0; i < n_fields; i++) {
@@ -201,6 +211,7 @@ void gc_push_root(void **ptr) {
   initialize_gc_if_needed();
   DEBUG_PRINTF("gc_push_root: Pushed root %p that points to object %p\n",
                (void *)ptr, *ptr);
+  DEBUG_PRINT_OBJECT(*ptr);
   if (gc_roots_next_index >= MAX_GC_ROOTS) {
     printf("Out of space for roots: could not push root %p\n", (void *)ptr);
     exit(1);
