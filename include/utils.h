@@ -1,15 +1,15 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include <stdbool.h>
 #include <assert.h>
+#include <stdbool.h>
 
-#include <runtime.h>
 #include "gc_state.h"
+#include <runtime.h>
 
 size_t size_of_object(stella_object *obj) {
-  return (1 + STELLA_OBJECT_HEADER_FIELD_COUNT(obj->object_header)) *
-         sizeof(void *);
+  int fields_count = STELLA_OBJECT_HEADER_FIELD_COUNT(obj->object_header);
+  return sizeof(stella_object) + fields_count * sizeof(void *);
 }
 
 // ------------------------------------
@@ -36,14 +36,14 @@ bool is_managed_by_gc(stella_object *obj) {
 }
 
 char get_object_location_kind(stella_object *obj) {
-    if (!is_managed_by_gc(obj)) {
-        return 'U';
-    } else if (is_in_from_space((void*)obj)) {
-        return 'F';
-    } else {
-        assert(is_in_to_space((void*) obj));
-        return 'T';
-    }
+  if (!is_managed_by_gc(obj)) {
+    return 'U';
+  } else if (is_in_from_space((void *)obj)) {
+    return 'F';
+  } else {
+    assert(is_in_to_space((void *)obj));
+    return 'T';
+  }
 }
 
 // ------------------------------------
