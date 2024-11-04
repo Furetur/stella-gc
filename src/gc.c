@@ -130,8 +130,9 @@ stella_object *recursive_mark_n_copy(stella_object *obj) {
         "recursive_mark_n_copy(%p): updated %d-th field from %p --> to %p\n",
         (void *)obj, i, (void *)field, (void *)forwarded_field);
   }
-  DEBUG_PRINTF("<<<< <<<< recursive_mark_n_copy(%p): moved to %p\n",
-               (void *)obj, (void *)new_location);
+  DEBUG_PRINTF(
+      "<<<< <<<< recursive_mark_n_copy(%p): successfully moved to %p\n",
+      (void *)obj, (void *)new_location);
   return new_location;
 }
 
@@ -151,13 +152,22 @@ void mark_n_copy(void) {
                (void *)from_space, (void *)to_space, (void *)allocation_ptr,
                (void *)copy_ptr);
   for (int i = 0; i < gc_roots_next_index; i++) {
-    DEBUG_PRINTF("mark_n_copy: visiting root %p that points to object %p\n",
-                 (void *)gc_roots[i], *gc_roots[i]);
-    void *forwarded_root = recursive_mark_n_copy(*gc_roots[i]);
+    stella_object *obj = *gc_roots[i];
+    DEBUG_PRINTF(
+        "mark_n_copy: visiting %d-th root %p that points to object %p\n", i,
+        (void *)gc_roots[i], (void *)obj);
+    if (!is_managed_by_gc(obj)) {
+      DEBUG_PRINTF("mark_n_copy: skipping root %p because it points to an "
+                   "unmanaged object %p\n",
+                   (void *)gc_roots[i], (void *)obj);
+      continue;
+    }
+    assert(is_in_from_space((void *)obj));
+    void *forwarded_obj = recursive_mark_n_copy(obj);
     DEBUG_PRINTF("mark_n_copy: updated root %p: from %p --> to %p\n",
-                 (void *)gc_roots[i], *gc_roots[i], forwarded_root);
-    assert(!is_managed_by_gc(forwarded_root) || is_in_to_space(forwarded_root));
-    *gc_roots[i] = forwarded_root;
+                 (void *)gc_roots[i], *gc_roots[i], forwarded_obj);
+    assert(is_in_to_space(forwarded_obj));
+    *gc_roots[i] = forwarded_obj;
   }
   swap_spaces();
   DEBUG_PRINTF("<<<< End mark_n_copy: from_space=%p, to_space=%p, "
@@ -170,7 +180,7 @@ void *gc_alloc(size_t size_in_bytes) {
   void *result;
   DEBUG_PRINTF("gc_alloc(%#zx)\n", size_in_bytes);
   initialize_gc_if_needed();
-#ifdef STELLA_GC_DEBUG_MODE
+#ifdef STELLA_GC_MOVE_ALWAYS
   mark_n_copy();
 #else
   result = try_alloc(size_in_bytes);

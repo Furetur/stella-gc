@@ -19,27 +19,44 @@ set_target_properties(
 target_compile_options(stella_runtime PRIVATE -Wno-everything)
 
 # ------------------------------
-# --- Strict Mode Settings
+# --- Sanitizers Settings
 
-option(STRICT_MODE "Enable strict compiler checks for GC" OFF)
+option(BUILD_WITH_SANITIZERS "Build with sanitizers" OFF)
 
 set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
+
+if(BUILD_WITH_SANITIZERS)
+    target_compile_options(stella_gc PRIVATE ${SANITIZER_OPTIONS})
+    target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS})
+    string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
+endif(BUILD_WITH_SANITIZERS)
+
+
+# ------------------------------
+# --- Strict Mode Settings
+
+option(STRICT_BUILD_MODE "Enable strict compiler checks for GC" OFF)
+
 set(WERROR_OPTIONS "-Wall" "-Wextra" "-Wpedantic" "-Werror")
 
-if(STRICT_MODE)
-    target_compile_options(stella_gc PRIVATE ${WERROR_OPTIONS} ${SANITIZER_OPTIONS})
-    target_compile_options(stella_runtime PRIVATE ${SANITIZER_OPTIONS} "-DSTELLA_DEBUG")
-    string(APPEND CMAKE_EXE_LINKER_FLAGS "-fsanitize=address")
+if(STRICT_BUILD_MODE)
+    target_compile_options(stella_gc PRIVATE ${WERROR_OPTIONS})
 endif()
 
 # ------------------------------
 # --- GC Debug Mode
 
 option(STELLA_GC_DEBUG_MODE "Enable GC debuging mode" OFF)
+option(STELLA_GC_MOVE_ALWAYS "Perform a moving phase on every allocation" OFF)
 
 if(STELLA_GC_DEBUG_MODE)
     add_compile_definitions(STELLA_GC_DEBUG_MODE)
-endif()
+endif(STELLA_GC_DEBUG_MODE)
+
+if(STELLA_GC_MOVE_ALWAYS)
+    add_compile_definitions(STELLA_GC_MOVE_ALWAYS)
+endif(STELLA_GC_MOVE_ALWAYS)
+
 
 # ------------------------------------------------------------
 # --- Targets for compiling user programs
@@ -75,7 +92,7 @@ if(BUILD_STELLA_PROGRAMS)
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/stella_examples/bin
         )
 
-        if(STRICT_MODE)
+        if(BUILD_WITH_SANITIZERS)
             target_compile_options(${TARGET_NAME} PRIVATE ${SANITIZER_OPTIONS})
         endif()
     endforeach()
