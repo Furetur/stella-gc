@@ -33,18 +33,15 @@ void write_forward_pointer_offset(stella_object *obj, uint32_t offset) {
   assert(read_offset == offset);
 }
 
-bool is_a_forward_pointer(stella_object *obj);
-
 stella_object *check_if_is_a_forward_pointer(stella_object *obj) {
   int header = obj->object_header;
   int tag = STELLA_OBJECT_HEADER_TAG(header);
   if (tag != TAG_MOVED) {
     return NULLPTR;
   }
-  uint32_t new_location_offset = read_forward_pointer_offset(obj); 
+  uint32_t new_location_offset = read_forward_pointer_offset(obj);
   uint8_t *new_location = (to_space + new_location_offset);
   assert(is_in_to_space(new_location));
-  assert(!is_a_forward_pointer((stella_object *)new_location));
   return (stella_object *)new_location;
 }
 

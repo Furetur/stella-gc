@@ -10,9 +10,9 @@
 
 #include "constants.h"
 #include "debug.h"
+#include "forward_pointer.h"
 #include "gc_state.h"
 #include "utils.h"
-#include "forward_pointer.h"
 
 // ------------------------------------
 // --- GC State
@@ -220,9 +220,7 @@ void gc_write_barrier(__attribute__((unused)) void *object,
 
 void gc_push_root(void **ptr) {
   initialize_gc_if_needed();
-  DEBUG_PRINTF("gc_push_root: Pushed root %p that points to object %p\n",
-               (void *)ptr, *ptr);
-  DEBUG_PRINT_OBJECT(*ptr);
+  DEBUG_PRINTF("gc_push_root: Pushed root %p\n", (void *)ptr);
   if (gc_roots_next_index >= MAX_GC_ROOTS) {
     printf("Out of space for roots: could not push root %p\n", (void *)ptr);
     exit(1);
@@ -232,8 +230,7 @@ void gc_push_root(void **ptr) {
 
 void gc_pop_root(__attribute__((unused)) void **ptr) {
   initialize_gc_if_needed();
-  DEBUG_PRINTF("gc_pop_root: Popped root %p that points to object %p\n",
-               (void *)ptr, *ptr);
+  DEBUG_PRINTF("gc_pop_root: Popped root %p\n", (void *)ptr);
   assert(gc_roots_next_index > 0);
   gc_roots_next_index--;
 }
