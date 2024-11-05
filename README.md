@@ -11,11 +11,13 @@ This will generate `build/libstella_gc.a` for the GC (without runtime) and `buil
 
 You can use the GC object file independently -- just link it with your own runtime and have fun!
 
-### Build with stella programs
+### Build with Stella programs
 
 `-DBUILD_STELLA_PROGRAMS=ON -DSTELLA_COMPILER=/path/to/stella/compiler`
 
 If you add these two arguments to the "Configure CMake" command, CMake will also build Stella programs from the `examples/` directory. It will statically link them with the runtime and GC. Built binaries will be located under `build/stella_examples`.
+
+For each Stella program, two binaries will be generated. For instance, for the program `exp.st` files `exp` and `exp__epsilon_gc` will be generated. The former is linked with the actual GC implementation, the latter -- with epsilon GC that does nothing.
 
 ### Additional development options
 
