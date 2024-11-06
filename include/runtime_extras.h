@@ -65,7 +65,8 @@ void print_stella_tag(stella_object *obj) {
     printf("TAG_CONS");
     break;
   default:
-    assert(false);
+    printf("???");
+    break;
   };
 }
 

@@ -20,8 +20,6 @@
 
 bool gc_initialized = false;
 
-uint8_t heap[2 * SPACE_SIZE];
-
 uint8_t *fromspace = NULLPTR;
 uint8_t *tospace = NULLPTR;
 
@@ -36,7 +34,7 @@ void initialize_gc_if_needed(void) {
   if (gc_initialized) {
     return;
   }
-  uint8_t *total_heap = heap;
+  uint8_t *total_heap = malloc(2 * SPACE_SIZE);
   fromspace = (void *)(total_heap);
   tospace = (void *)(total_heap + SPACE_SIZE);
   alloc_ptr = fromspace;
@@ -108,7 +106,7 @@ stella_object *forward(stella_object *obj) {
     forward_ptr = as_forward_ptr(obj);
     assert(forward_ptr != NULLPTR);
     assert(points_to_tospace((void *)forward_ptr));
-    GC_DEBUG_PRINTF("forward(%p): after chasing return %p\n", (void *)obj,
+    GC_DEBUG_PRINTF("forward(%p): finished chasing, return %p\n", (void *)obj,
                     (void *)forward_ptr);
     return forward_ptr;
   } else {
@@ -120,7 +118,7 @@ stella_object *forward(stella_object *obj) {
 }
 
 void forward_roots(void) {
-  GC_DEBUG_PRINTF("forward_roots(): Forwarding %d roots", gc_roots_next_index);
+  GC_DEBUG_PRINTF("forward_roots(): Forwarding %d roots\n", gc_roots_next_index);
   for (int i = 0; i < gc_roots_next_index; i++) {
     stella_object **root = (stella_object **)gc_roots[i];
     GC_DEBUG_PRINTF(
@@ -182,12 +180,18 @@ void *gc_alloc(size_t size_in_bytes) {
   void *result;
   initialize_gc_if_needed();
 #ifdef STELLA_GC_MOVE_ALWAYS
+  GC_DEBUG_PRINTF(
+      "gc_alloc(%#zx): Starting collection because STELLA_GC_MOVE_ALWAYS=ON\n",
+      size_in_bytes);
   collect();
 #else
   result = try_alloc(size_in_bytes);
   if (result != NULLPTR) {
     return result;
   }
+  GC_DEBUG_PRINTF("gc_alloc(%#zx): Starting collection because there is not "
+                  "enough space for object\n",
+                  size_in_bytes);
   collect();
 #endif
   result = try_alloc(size_in_bytes);

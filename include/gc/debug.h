@@ -33,7 +33,7 @@ char *describe_object_location(stella_object *obj) {
   }
 }
 
-void print_gc_object(stella_object *obj) {
+void print_gc_object(stella_object *obj, bool allow_forward_ptr) {
   size_t size = gc_size_of_object(obj);
   printf("object at %p (%s) of size %#zx: ", (void *)obj,
          describe_object_location(obj), size);
@@ -41,17 +41,19 @@ void print_gc_object(stella_object *obj) {
     printf("nullptr");
     return;
   }
-  print_stella_object_raw(obj);
   stella_object *forward_ptr = as_forward_ptr(obj);
   if (forward_ptr != NULLPTR) {
-    printf(" ---FWD---> ");
-    print_gc_object(forward_ptr);
+    assert(allow_forward_ptr);
+    printf("FWD to %p: ", (void *)forward_ptr);
+    print_gc_object(forward_ptr, false);
+  } else {
+    print_stella_object_raw(obj);
   }
 }
 
 void debug_print_object(stella_object *obj) {
   printf("[debug gc]        Note: ");
-  print_gc_object(obj);
+  print_gc_object(obj, true);
   printf("\n");
 }
 
