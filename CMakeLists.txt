@@ -22,6 +22,15 @@ target_compile_options(stella_runtime PRIVATE -Wno-everything)
 target_compile_options(stella_epsilon_gc PRIVATE -Wno-everything)
 
 # ------------------------------
+# --- GC Settings
+
+set(MAX_ALLOC_SIZE "1024" CACHE STRING "MAX_ALLOC_SIZE in bytes")
+
+if(MAX_ALLOC_SIZE)
+    add_compile_definitions(MAX_ALLOC_SIZE=${MAX_ALLOC_SIZE})
+endif(MAX_ALLOC_SIZE)
+
+# ------------------------------
 # --- Sanitizers Settings
 
 option(BUILD_WITH_SANITIZERS "Build with sanitizers" OFF)
@@ -60,6 +69,25 @@ endif(STELLA_GC_DEBUG_MODE)
 if(STELLA_GC_MOVE_ALWAYS)
     add_compile_definitions(STELLA_GC_MOVE_ALWAYS)
 endif(STELLA_GC_MOVE_ALWAYS)
+
+# ------------------------------
+# --- Stella Debug and Stats
+
+option(STELLA_DEBUG "Define STELLA_DEBUG" OFF)
+option(STELLA_GC_STATS "Define STELLA_GC_STATS" OFF)
+option(STELLA_RUNTIME_STATS "Define STELLA_RUNTIME_STATS" OFF)
+
+if(STELLA_DEBUG)
+    add_compile_definitions(STELLA_DEBUG)
+endif(STELLA_DEBUG)
+
+if(STELLA_GC_STATS)
+    add_compile_definitions(STELLA_GC_STATS)
+endif(STELLA_GC_STATS)
+
+if(STELLA_RUNTIME_STATS)
+    add_compile_definitions(STELLA_RUNTIME_STATS)
+endif(STELLA_RUNTIME_STATS)
 
 
 # ------------------------------------------------------------

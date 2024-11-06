@@ -51,14 +51,14 @@ void print_gc_object(stella_object *obj, bool allow_forward_ptr) {
   }
 }
 
-void debug_print_object(stella_object *obj) {
+void gc_debug_print_object(stella_object *obj) {
   printf("[debug gc]        Note: ");
   print_gc_object(obj, true);
   printf("\n");
 }
 
 #ifdef STELLA_GC_DEBUG_MODE
-#define GC_DEBUG_PRINT_OBJECT(obj) debug_print_object(obj)
+#define GC_DEBUG_PRINT_OBJECT(obj) gc_debug_print_object(obj)
 #else
 #define GC_DEBUG_PRINT_OBJECT(obj) ((void)0)
 #endif

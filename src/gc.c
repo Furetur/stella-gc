@@ -12,6 +12,7 @@
 #include "gc/debug.h"
 #include "gc/forward_pointers.h"
 #include "gc/state.h"
+#include "gc/stats.h"
 #include "gc/utils.h"
 #include "runtime_extras.h"
 
@@ -48,6 +49,7 @@ void *try_alloc(size_t size_in_bytes) {
   bool is_enough_space =
       is_enough_space_left(fromspace, alloc_ptr, size_in_bytes);
   if (is_enough_space) {
+    stats_record_allocation(size_in_bytes);
     uint8_t *result = alloc_ptr;
     alloc_ptr += size_in_bytes;
     GC_DEBUG_PRINTF("try_alloc: allocated object of size %#zx at %p, new "
@@ -118,7 +120,8 @@ stella_object *forward(stella_object *obj) {
 }
 
 void forward_roots(void) {
-  GC_DEBUG_PRINTF("forward_roots(): Forwarding %d roots\n", gc_roots_next_index);
+  GC_DEBUG_PRINTF("forward_roots(): Forwarding %d roots\n",
+                  gc_roots_next_index);
   for (int i = 0; i < gc_roots_next_index; i++) {
     stella_object **root = (stella_object **)gc_roots[i];
     GC_DEBUG_PRINTF(
@@ -158,6 +161,7 @@ void collect(void) {
   GC_DEBUG_PRINTF(
       ">>>> collect(): Start: fromspace=%p, tospace=%p, alloc_ptr=%p\n",
       (void *)fromspace, (void *)tospace, (void *)alloc_ptr);
+  stats_record_collect();
   // Prepare
   scan_ptr = tospace;
   next_ptr = tospace;
@@ -176,9 +180,9 @@ void collect(void) {
 }
 
 void *gc_alloc(size_t size_in_bytes) {
+  initialize_gc_if_needed();
   GC_DEBUG_PRINTF("gc_alloc(%#zx)\n", size_in_bytes);
   void *result;
-  initialize_gc_if_needed();
 #ifdef STELLA_GC_MOVE_ALWAYS
   GC_DEBUG_PRINTF(
       "gc_alloc(%#zx): Starting collection because STELLA_GC_MOVE_ALWAYS=ON\n",
@@ -202,38 +206,56 @@ void *gc_alloc(size_t size_in_bytes) {
   exit(1);
 }
 
-void print_gc_roots(void) { initialize_gc_if_needed(); }
+void print_gc_roots(void) {
+  initialize_gc_if_needed();
+  printf("List of GC roots (%d elements):\n", gc_roots_next_index);
+  for (int i = 0; i < gc_roots_next_index; i++) {
+    printf("  %d. Root %p points at object %p\n", i + 1,
+           (void *)(void *)gc_roots[i], (void *)*gc_roots[i]);
+  }
+}
 
-void print_gc_alloc_stats(void) { initialize_gc_if_needed(); }
+void print_gc_alloc_stats(void) { print_stats(); }
 
 void print_gc_state(void) {
   initialize_gc_if_needed();
-  // TODO: not implemented
+  printf("from-space: %p..%p\n", (void *)fromspace,
+         (void *)(fromspace + SPACE_SIZE - 1));
+  printf("to-space: %p..%p\n", (void *)tospace,
+         (void *)(fromspace + SPACE_SIZE - 1));
+  printf("alloc_ptr: %p\n", (void *)alloc_ptr);
+  size_t allocated_bytes = alloc_ptr - fromspace;
+  size_t free_bytes = SPACE_SIZE - allocated_bytes;
+  printf("    allocated in from-space: %#zx bytes\n", allocated_bytes);
+  printf("    free in from-space:      %#zx bytes\n", free_bytes);
+  size_t allocated_in_tospace = next_ptr - tospace;
+  size_t free_in_tospace = SPACE_SIZE - allocated_bytes;
+  printf("next_ptr: %p\n", (void *)next_ptr);
+  printf("    allocated in to-space:   %#zx bytes\n", allocated_in_tospace);
+  printf("    free in to-space:        %#zx bytes\n", free_in_tospace);
+  printf("scan_ptr: %p\n", (void *)scan_ptr);
+  printf("    left to scan:            %#zx bytes\n", next_ptr - scan_ptr);
+  print_gc_roots();
 }
 
 void gc_read_barrier(__attribute__((unused)) void *object,
-                     __attribute__((unused)) int field_index) {
-  initialize_gc_if_needed();
-}
+                     __attribute__((unused)) int field_index) {}
 
 void gc_write_barrier(__attribute__((unused)) void *object,
                       __attribute__((unused)) int field_index,
-                      __attribute__((unused)) void *contents) {
-  initialize_gc_if_needed();
-}
+                      __attribute__((unused)) void *contents) {}
 
 void gc_push_root(void **ptr) {
-  initialize_gc_if_needed();
   GC_DEBUG_PRINTF("gc_push_root: Pushed root %p\n", (void *)ptr);
   if (gc_roots_next_index >= MAX_GC_ROOTS) {
     printf("Out of space for roots: could not push root %p\n", (void *)ptr);
     exit(1);
   }
+  stats_record_push_root();
   gc_roots[gc_roots_next_index++] = ptr;
 }
 
 void gc_pop_root(__attribute__((unused)) void **ptr) {
-  initialize_gc_if_needed();
   GC_DEBUG_PRINTF("gc_pop_root: Popped root %p\n", (void *)ptr);
   assert(gc_roots_next_index > 0);
   gc_roots_next_index--;

@@ -21,7 +21,38 @@ For each Stella program, two binaries will be generated. For instance, for the p
 
 ### Additional development options
 
+GC parameters:
+
+* `-DMAX_ALLOC_SIZE=1024` Defines the size of available memory (in bytes)
+
+Stella options:
+
+* `-DSTELLA_DEBUG=ON|OFF` Defines the STELLA_DEBUG macro
+* `-DSTELLA_GC_STATS=ON|OFF` Defines the STELLA_GC_STATS macro
+* `-DSTELLA_RUNTIME_STATS=ON|OFF` Defines the STELLA_RUNTIME_STATS macro
+
+Statis checks for GC:
+
 * `-DSTRICT_BUILD_MODE=ON|OFF` Build the GC source files with `-Wall -Wpedantic ...`
+
+Runtime checks for GC:
+
 * `-DSTELLA_GC_DEBUG_MODE=ON|OFF` Enable logging for GC
-* `-DSTELLA_GC_MOVE_ALWAYS=ON|OFF` This options tells GC to initiate the marking-and-moving phase every time `gc_alloc` is called
+* `-DSTELLA_GC_MOVE_ALWAYS=ON|OFF` This options tells GC to marking-and-moving phase every time an object is allocated is called
 * `-DBUILD_WITH_SANITIZERS=ON|OFF` Build everything with address sanitizers
+
+## GC Statistics Example
+
+```
+$ echo 5 | ./build/stella_examples/bin/factorial_functional
+
+...
+
+------------------------------------------------------------
+Garbage collector (GC) statistics:
+MAX_ALLOC_SIZE:                  10,000 bytes
+Total memory allocation:         14,368 bytes (888 objects)
+Maximum residency:               4,056 bytes
+Total number of GC cycles:       888 times
+Maximum number of roots:         41
+```
