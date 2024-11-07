@@ -33,7 +33,7 @@ set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
 file(GLOB GC_SOURCES src/*.c)
 file(GLOB STELLA_RUNTIME_SOURCES runtime/runtime.c)
 file(GLOB STELLA_EPSILON_GC_SOURCES runtime/epsilon_gc.c)
-file(GLOB STELLA_PROGRAMS examples/*.st)
+file(GLOB STELLA_PROGRAMS tests/data/programs/*.st)
 
 # ------------------------------------------------------------
 # --- Main targets for GC and runtime
@@ -105,7 +105,7 @@ endif(STELLA_RUNTIME_STATS)
 function(add_user_program_executable target_name gc_lib program_c_file)
     add_executable(${target_name} ${program_c_file})
     target_link_libraries(${target_name} ${gc_lib} stella_runtime)
-    set_target_properties(${TARGET_NAME}
+    set_target_properties(${target_name}
         PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/stella_examples/bin
     )
@@ -114,7 +114,20 @@ function(add_user_program_executable target_name gc_lib program_c_file)
     endif()
 endfunction()
 
+function(add_gc_test prog_with_gc prog_with_epsilon_gc inputs_file_name)
+    add_test(
+        NAME ${prog_with_gc}
+        COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/compare_outputs.py
+            --put=${CMAKE_BINARY_DIR}/stella_examples/bin/${prog_with_gc}
+            --ref=${CMAKE_BINARY_DIR}/stella_examples/bin/${prog_with_epsilon_gc}
+            --inputs=${CMAKE_SOURCE_DIR}/tests/data/inputs/${inputs_file_name}.txt
+    )
+endfunction()
+
+
 if(TEST_ON_STELLA_PROGRAMS)
+    enable_testing()
+
     foreach(STELLA_PROGRAM ${STELLA_PROGRAMS})
         get_filename_component(PROGRAM_NAME ${STELLA_PROGRAM} NAME_WE)
         set(STELLA_PROG_C_OUT ${CMAKE_BINARY_DIR}/stella_examples/${PROGRAM_NAME}.c)
@@ -132,5 +145,11 @@ if(TEST_ON_STELLA_PROGRAMS)
         add_user_program_executable(${TARGET_NAME} stella_gc ${STELLA_PROG_C_OUT})
         # Add executable for epsilon gc
         add_user_program_executable(${EPSILON_GC_TARGET_NAME} stella_epsilon_gc ${STELLA_PROG_C_OUT})
+        # Run two executables and compare outputs
+        add_gc_test(
+            ${TARGET_NAME}
+            ${EPSILON_GC_TARGET_NAME}
+            ${TARGET_NAME}
+        )
     endforeach()
 endif()
