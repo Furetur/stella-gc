@@ -30,7 +30,7 @@ set(STELLA_COMPILER "" CACHE STRING "Path to the PET compiler")
 set(WERROR_OPTIONS "-Wall" "-Wextra" "-Wpedantic" "-Werror")
 set(SANITIZER_OPTIONS "-fsanitize=address" "-fno-omit-frame-pointer")
 
-file(GLOB GC_SOURCES src/*.c)
+file(GLOB GC_SOURCES src/*.c src/gc/*.c)
 file(GLOB STELLA_RUNTIME_SOURCES runtime/runtime.c)
 file(GLOB STELLA_EPSILON_GC_SOURCES runtime/epsilon_gc.c)
 file(GLOB STELLA_PROGRAMS tests/data/programs/*.st)
