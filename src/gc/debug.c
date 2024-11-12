@@ -29,15 +29,15 @@ char *describe_object_location(stella_object *obj) {
 }
 
 void print_gc_object(stella_object *obj, bool allow_forward_ptr) {
+  if (!is_managed_by_gc(obj)) {
+    printf("<unmanaged %p>", (void *)obj);
+    return;
+  }
   size_t size = gc_size_of_object(obj);
   printf("object at %p (%s) of size %#zx: ", (void *)obj,
          describe_object_location(obj), size);
   if (obj == NULLPTR) {
     printf("nullptr");
-    return;
-  }
-  if (!is_managed_by_gc(obj)) {
-    printf("unknown object from unmanaged space");
     return;
   }
   stella_object *forward_ptr = as_forward_ptr(obj);

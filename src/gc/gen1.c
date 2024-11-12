@@ -7,6 +7,7 @@
 
 #include <runtime.h>
 
+#include "gc/gen0.h"
 #include "gc/gen1.h"
 
 #include "constants.h"
@@ -36,9 +37,10 @@ void gen1_initialize(void) {
   gen1_fromspace = (void *)(total_heap);
   gen1_tospace = (void *)(total_heap + GEN1_SPACE_SIZE);
   gen1_alloc_ptr = gen1_fromspace;
-  GC_DEBUG_PRINTF(
-      "Initialized GC with SPACE_SIZE=%#zx, from_space=%p, to_space=%p\n",
-      GEN1_SPACE_SIZE, (void *)gen1_fromspace, (void *)gen1_tospace);
+  GC_DEBUG_PRINTF("Initialized Gen1 with GEN1_SPACE_SIZE=%#zx, from_space=%p, "
+                  "to_space=%p\n",
+                  GEN1_SPACE_SIZE, (void *)gen1_fromspace,
+                  (void *)gen1_tospace);
   gen1_gc_initialized = true;
 }
 
@@ -83,22 +85,23 @@ static stella_object *gen1_forward(stella_object *obj) {
     stella_object *forward_ptr = as_forward_ptr(obj);
     if (forward_ptr != NULLPTR) {
       GC_DEBUG_PRINTF(
-          "forward(%p): the object is a forward pointer, return %p\n",
+          "gen1_forward(%p): the object is a forward pointer, return %p\n",
           (void *)obj, (void *)forward_ptr);
       return forward_ptr;
     }
-    GC_DEBUG_PRINTF("forward(%p): start chasing\n", (void *)obj);
+    GC_DEBUG_PRINTF("gen1_forward(%p): start chasing\n", (void *)obj);
     chase(obj);
     forward_ptr = as_forward_ptr(obj);
     assert(forward_ptr != NULLPTR);
     assert(points_to_tospace((void *)forward_ptr));
-    GC_DEBUG_PRINTF("forward(%p): finished chasing, return %p\n", (void *)obj,
-                    (void *)forward_ptr);
+    GC_DEBUG_PRINTF("gen1_forward(%p): finished chasing, return %p\n",
+                    (void *)obj, (void *)forward_ptr);
     return forward_ptr;
   } else {
-    GC_DEBUG_PRINTF("forward(%p): immediately return %p, because the object is "
-                    "not in from-space\n",
-                    (void *)obj, (void *)obj);
+    GC_DEBUG_PRINTF(
+        "gen1_forward(%p): immediately return %p, because the object is "
+        "not in from-space\n",
+        (void *)obj, (void *)obj);
     return obj;
   }
 }
@@ -157,7 +160,7 @@ void gen1_collect(void) {
   GC_DEBUG_PRINTF(
       ">>>> gen1_collect(): Start: fromspace=%p, tospace=%p, alloc_ptr=%p\n",
       (void *)gen1_fromspace, (void *)gen1_tospace, (void *)gen1_alloc_ptr);
-  stats_record_collect();
+  stats_record_collect(1);
   // Prepare
   gen1_scan_ptr = gen1_tospace;
   gen1_next_ptr = gen1_tospace;
@@ -171,16 +174,24 @@ void gen1_collect(void) {
   gen1_tospace = temp;
   // Set alloc_ptr
   gen1_alloc_ptr = gen1_next_ptr;
+  // Reset gen0's scan_ptr in case there is a pending collection
+  if (gen0_scan_ptr != NULLPTR) {
+    gen0_scan_ptr = gen1_fromspace;
+    GC_DEBUG_PRINTF("gen1_collect(): Pending Gen0 collection detected! Reset "
+                    "gen0_scan_ptr=%p and gen1_roots_to_gen0\n",
+                    (void *)gen0_scan_ptr);
+    scan_gen1_for_roots_to_gen0();
+  }
   GC_DEBUG_PRINTF(
       "<<<< gen1_collect(): End: fromspace=%p, tospace=%p, alloc_ptr=%p\n",
       (void *)gen1_fromspace, (void *)gen1_tospace, (void *)gen1_alloc_ptr);
 }
 
 void *gen1_alloc(size_t size_in_bytes) {
-  GC_DEBUG_PRINTF("gen1_gc_alloc(%#zx)\n", size_in_bytes);
+  GC_DEBUG_PRINTF("gen1_alloc(%#zx)\n", size_in_bytes);
   void *result;
 #ifdef STELLA_GC_MOVE_ALWAYS
-  GC_DEBUG_PRINTF("gen1_gc_alloc(%#zx): Starting collection because "
+  GC_DEBUG_PRINTF("gen1_alloc(%#zx): Starting collection because "
                   "STELLA_GC_MOVE_ALWAYS=ON\n",
                   size_in_bytes);
   gen1_collect();
@@ -189,11 +200,10 @@ void *gen1_alloc(size_t size_in_bytes) {
   if (result != NULLPTR) {
     return result;
   }
-  GC_DEBUG_PRINTF(
-      "gen1_gc_alloc(%#zx): Starting collection because there is not "
-      "enough space for object\n",
-      size_in_bytes);
-  collect();
+  GC_DEBUG_PRINTF("gen1_alloc(%#zx): Starting collection because there is not "
+                  "enough space for object\n",
+                  size_in_bytes);
+  gen1_collect();
 #endif
   result = gen1_try_alloc(size_in_bytes);
   if (result != NULLPTR) {

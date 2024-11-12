@@ -33,7 +33,7 @@ void initialize_gc_if_needed(void) {
 
 void *gc_alloc(size_t size_in_bytes) {
   initialize_gc_if_needed();
-  return gen1_alloc(size_in_bytes);
+  return gen0_alloc(size_in_bytes);
 }
 
 void print_gc_roots(void) {

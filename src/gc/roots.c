@@ -24,7 +24,7 @@ int roots_from_gen1_to_gen0_next_index = 0;
 void **roots_from_gen1_to_gen0[MAX_ROOTS_FROM_GEN0_TO_GEN1];
 
 void push_var_root(void **ptr) {
-  GC_DEBUG_PRINTF("push_var_root: Pushed root %p\n", (void *)ptr);
+  GC_DEBUG_PRINTF("push_var_root(): Pushed root %p\n", (void *)ptr);
   if (var_roots_next_index >= MAX_VAR_ROOTS) {
     printf("Out of space for roots: could not push root %p\n", (void *)ptr);
     exit(1);
@@ -34,7 +34,7 @@ void push_var_root(void **ptr) {
 }
 
 void pop_var_root(__attribute__((unused)) void **ptr) {
-  GC_DEBUG_PRINTF("pop_var_root: Popped root %p\n", (void *)ptr);
+  GC_DEBUG_PRINTF("pop_var_root(): Popped root %p\n", (void *)ptr);
   assert(var_roots_next_index > 0);
   var_roots_next_index--;
 }
@@ -46,6 +46,7 @@ void scan_space_for_roots(void **roots[], int *next_root_index,
   uint8_t *cur_ptr = space_start;
   while (cur_ptr < space_end) {
     stella_object *cur_obj = (stella_object *)cur_ptr;
+    cur_ptr += gc_size_of_object(cur_obj);
     if (get_tag(cur_obj) == TAG_FORWARD_PTR) {
       continue;
     }
@@ -56,7 +57,6 @@ void scan_space_for_roots(void **roots[], int *next_root_index,
         *next_root_index = *next_root_index + 1;
       }
     }
-    cur_ptr += gc_size_of_object(cur_obj);
   }
   assert(cur_ptr == space_end);
 }
@@ -66,6 +66,9 @@ void scan_gen0_for_roots_to_gen1(void) {
   scan_space_for_roots(roots_from_gen0_to_gen1,
                        &roots_from_gen0_to_gen1_next_index, gen0_space,
                        gen0_alloc_ptr, points_to_fromspace);
+  GC_DEBUG_PRINTF("scan_gen0_for_roots_to_gen1(): Scanned Gen0 for roots and "
+                  "found %d roots to Gen1\n",
+                  roots_from_gen0_to_gen1_next_index);
 }
 
 // Roots from Gen1 to Gen0
@@ -73,4 +76,7 @@ void scan_gen1_for_roots_to_gen0(void) {
   scan_space_for_roots(roots_from_gen1_to_gen0,
                        &roots_from_gen1_to_gen0_next_index, gen1_fromspace,
                        gen1_alloc_ptr, points_to_gen0_space);
+  GC_DEBUG_PRINTF("scan_gen1_for_roots_to_gen0(): Scanned Gen1 for roots and "
+                  "found %d roots to Gen0\n",
+                  roots_from_gen1_to_gen0_next_index);
 }

@@ -58,11 +58,12 @@ void *try_alloc(uint8_t *space_start, size_t space_size, uint8_t **alloc_ptr,
       space_start, space_size, *alloc_ptr, size_in_bytes);
   if (can_allocate) {
     stats_record_allocation(size_in_bytes);
-    uint8_t *result = gen1_alloc_ptr;
+    uint8_t *result = *alloc_ptr;
     *alloc_ptr = (*alloc_ptr) + size_in_bytes;
     GC_DEBUG_PRINTF("try_alloc: allocated object of size %#zx at %p, new "
                     "alloc_ptr=%p\n",
                     size_in_bytes, (void *)result, (void *)*alloc_ptr);
+    stats_record_max_residency();
     return result;
   } else {
     GC_DEBUG_PRINTF("try_alloc: not enough space for %#zx bytes\n",

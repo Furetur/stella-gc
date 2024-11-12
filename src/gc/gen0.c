@@ -10,6 +10,7 @@
 #include "gc/gen1.h"
 #include "gc/parameters.h"
 #include "gc/roots.h"
+#include "gc/stats.h"
 #include "gc/utils.h"
 #include "runtime.h"
 #include "runtime_extras.h"
@@ -25,6 +26,9 @@ void gen0_initialize(void) {
   assert(!gen0_gc_initialized);
   gen0_space = malloc(GEN0_SPACE_SIZE);
   gen0_alloc_ptr = gen0_space;
+  GC_DEBUG_PRINTF("Initialized Gen0: GEN0_SPACE_SIZE=%#zx, gen0_space=%p, "
+                  "gen0_alloc_ptr=%p\n",
+                  GEN0_SPACE_SIZE, (void *)gen0_space, (void *)gen0_alloc_ptr);
   gen0_gc_initialized = true;
 }
 
@@ -83,20 +87,20 @@ static stella_object *gen0_forward(stella_object *obj) {
   } else {
     GC_DEBUG_PRINTF(
         "gen0_forward(%p): immediately return %p, because the object is "
-        "not in from-space\n",
+        "not in gen0-space\n",
         (void *)obj, (void *)obj);
     return obj;
   }
 }
 
 static void gen0_forward_var_roots(void) {
-  GC_DEBUG_PRINTF("gen0_forward_roots(): Forwarding %d roots\n",
+  GC_DEBUG_PRINTF("gen0_forward_var_roots(): Forwarding %d roots\n",
                   var_roots_next_index);
   for (int i = 0; i < var_roots_next_index; i++) {
     stella_object **root = (stella_object **)var_roots[i];
-    GC_DEBUG_PRINTF(
-        "forward_roots(): Forwarding %d-th root %p which points at object %p\n",
-        i, (void *)root, (void *)*root);
+    GC_DEBUG_PRINTF("gen0_forward_var_roots(): Forwarding %d-th root %p which "
+                    "points at object %p\n",
+                    i, (void *)root, (void *)*root);
     GC_DEBUG_PRINT_OBJECT(*root);
     *root = gen0_forward(*root);
   }
@@ -106,11 +110,15 @@ static void gen0_forward_roots_from_gen1(void) {
   scan_gen1_for_roots_to_gen0();
   GC_DEBUG_PRINTF("gen0_forward_roots_from_gen1(): Forwarding %d roots\n",
                   roots_from_gen1_to_gen0_next_index);
-  for (int i = 0; i < roots_from_gen1_to_gen0_next_index; i++) {
+  // Here we use the 'roots_from_gen1_to_gen0_next_index' global variable
+  // because it can be reset by Gen1 GC on collect
+  while (roots_from_gen1_to_gen0_next_index > 0) {
+    int i = --roots_from_gen1_to_gen0_next_index;
     stella_object **root = (stella_object **)roots_from_gen1_to_gen0[i];
     GC_DEBUG_PRINTF("gen0_forward_roots_from_gen1(): Forwarding %d-th root %p "
                     "which points at object %p\n",
                     i, (void *)root, (void *)*root);
+    assert(!points_to_tospace((void *)root));
     GC_DEBUG_PRINT_OBJECT(*root);
     *root = gen0_forward(*root);
   }
@@ -130,11 +138,13 @@ static void gen0_forward_fields(stella_object *obj) {
 
 static void gen0_scan(void) {
   GC_DEBUG_PRINTF(
-      "gen0_scan_gen1(): Start scanning: gen0_scan_ptr=%p, gen1_alloc_ptr=%p\n",
+      "gen0_scan(): Start scanning: gen0_scan_ptr=%p, gen1_alloc_ptr=%p\n",
       (void *)gen0_scan_ptr, (void *)gen1_alloc_ptr);
+  assert(points_to_fromspace(gen0_scan_ptr));
   while (gen0_scan_ptr < gen1_alloc_ptr) {
+    assert(points_to_fromspace(gen0_scan_ptr));
     stella_object *current_obj = (stella_object *)gen0_scan_ptr;
-    GC_DEBUG_PRINTF("gen0_scan_gen1(): Forwarding fields of object at %p\n",
+    GC_DEBUG_PRINTF("gen0_scan(): Forwarding fields of object at %p\n",
                     (void *)current_obj);
     GC_DEBUG_PRINT_OBJECT(current_obj);
     gen0_forward_fields(current_obj);
@@ -143,26 +153,41 @@ static void gen0_scan(void) {
 }
 
 void gen0_collect(void) {
-  GC_DEBUG_PRINTF(
-      ">>>> gen0_collect(): Start: gen0_space=%p, gen1_alloc_ptr=%p\n",
-      (void *)gen0_space, (void *)gen1_alloc_ptr);
-  // Prepare
-  gen1_scan_ptr = gen1_alloc_ptr;
+  gen0_scan_ptr = gen1_alloc_ptr;
+  GC_DEBUG_PRINTF(">>>> gen0_collect(): Start: gen0_space=%p, "
+                  "gen0_next_ptr(i.e. gen1_alloc_ptr)=%p, gen0_scan_ptr=%p\n",
+                  (void *)gen0_space, (void *)gen1_alloc_ptr,
+                  (void *)gen0_scan_ptr);
+  stats_record_collect(0);
   // Copy reachable objects
   gen0_forward_var_roots();
   gen0_forward_roots_from_gen1();
   gen0_scan();
+  gen0_scan_ptr = NULLPTR;
+  gen0_alloc_ptr = gen0_space;
   GC_DEBUG_PRINTF(
       "<<<< gen0_collect(): End: gen0_space=%p, gen1_alloc_ptr=%p\n",
       (void *)gen0_space, (void *)gen1_alloc_ptr);
 }
 
 void *gen0_alloc(size_t size_in_bytes) {
-  void *result = gen0_try_alloc(size_in_bytes);
+  GC_DEBUG_PRINTF("gen0_alloc(%#zx)\n", size_in_bytes);
+  void *result;
+#ifdef STELLA_GC_MOVE_ALWAYS
+  GC_DEBUG_PRINTF("gen0_alloc(%#zx): Starting collection because "
+                  "STELLA_GC_MOVE_ALWAYS=ON\n",
+                  size_in_bytes);
+  gen0_collect();
+#else
+  result = gen0_try_alloc(size_in_bytes);
   if (result != NULLPTR) {
     return result;
   }
+  GC_DEBUG_PRINTF("gen0_alloc(%#zx): Starting collection because there is not "
+                  "enough space for object\n",
+                  size_in_bytes);
   gen0_collect();
+#endif
   result = gen0_try_alloc(size_in_bytes);
   if (result != NULLPTR) {
     return result;
