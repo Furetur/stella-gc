@@ -47,13 +47,17 @@ void scan_space_for_roots(void **roots[], int *next_root_index,
   while (cur_ptr < space_end) {
     stella_object *cur_obj = (stella_object *)cur_ptr;
     cur_ptr += gc_size_of_object(cur_obj);
-    if (get_tag(cur_obj) == TAG_FORWARD_PTR) {
-      continue;
+    if (is_forward_ptr(cur_obj)) {
+      void **root = &(cur_obj->object_fields[0]);
+      if (check_belongs_to_target_space((uint8_t *)*root)) {
+        roots[*next_root_index] = root;
+        *next_root_index = *next_root_index + 1;
+      }
     }
     for (int i = 0; i < get_fields_count(cur_obj); i++) {
-      void *field = cur_obj->object_fields[i];
-      if (check_belongs_to_target_space((uint8_t *)field)) {
-        roots[*next_root_index] = &field;
+      void **root = &(cur_obj->object_fields[i]);
+      if (check_belongs_to_target_space((uint8_t *)*root)) {
+        roots[*next_root_index] = root;
         *next_root_index = *next_root_index + 1;
       }
     }
@@ -66,7 +70,8 @@ void scan_gen0_for_roots_to_gen1(void) {
   scan_space_for_roots(roots_from_gen0_to_gen1,
                        &roots_from_gen0_to_gen1_next_index, gen0_space,
                        gen0_alloc_ptr, points_to_fromspace);
-  GC_DEBUG_PRINTF("scan_gen0_for_roots_to_gen1(): Scanned Gen0 for roots and "
+  GC_DEBUG_PRINTF("scan_gen0_for_roots_to_gen1(): Scanned Gen0 "
+                  "for roots and "
                   "found %d roots to Gen1\n",
                   roots_from_gen0_to_gen1_next_index);
 }
@@ -76,7 +81,8 @@ void scan_gen1_for_roots_to_gen0(void) {
   scan_space_for_roots(roots_from_gen1_to_gen0,
                        &roots_from_gen1_to_gen0_next_index, gen1_fromspace,
                        gen1_alloc_ptr, points_to_gen0_space);
-  GC_DEBUG_PRINTF("scan_gen1_for_roots_to_gen0(): Scanned Gen1 for roots and "
+  GC_DEBUG_PRINTF("scan_gen1_for_roots_to_gen0(): Scanned Gen1 "
+                  "for roots and "
                   "found %d roots to Gen0\n",
                   roots_from_gen1_to_gen0_next_index);
 }
