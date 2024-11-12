@@ -18,7 +18,7 @@ static char *LOCATION_UNMANAGED_SPACE = "UNMANAGED SPACE";
 char *describe_object_location(stella_object *obj) {
   if (!is_managed_by_gc(obj)) {
     return LOCATION_UNMANAGED_SPACE;
-  } else if (points_to_gen0_space((void*)obj)) {
+  } else if (points_to_gen0_space((void *)obj)) {
     return LOCATION_GEN0_SPACE;
   } else if (points_to_fromspace((void *)obj)) {
     return LOCATION_FROMSPACE;
@@ -34,6 +34,10 @@ void print_gc_object(stella_object *obj, bool allow_forward_ptr) {
          describe_object_location(obj), size);
   if (obj == NULLPTR) {
     printf("nullptr");
+    return;
+  }
+  if (!is_managed_by_gc(obj)) {
+    printf("unknown object from unmanaged space");
     return;
   }
   stella_object *forward_ptr = as_forward_ptr(obj);
