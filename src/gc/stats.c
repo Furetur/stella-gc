@@ -42,7 +42,7 @@ void stats_record_allocation(size_t size_in_bytes) {
 void stats_record_collect(void) { n_collects += 1; }
 
 void print_stats(void) {
-  printf("MAX_ALLOC_SIZE:                  %'d bytes\n", GEN1_SPACE_SIZE);
+  printf("MAX_ALLOC_SIZE:                  %zu bytes\n", GEN1_SPACE_SIZE);
   printf("Total memory allocation:         %'zu bytes (%llu objects)\n",
          total_allocated_bytes, total_allocated_objects);
   printf("Maximum residency:               %'zu bytes\n", max_allocated_memory);

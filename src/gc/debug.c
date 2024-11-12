@@ -10,13 +10,16 @@
 #include "gc/utils.h"
 #include "runtime_extras.h"
 
-char *LOCATION_FROMSPACE = "FROM-SPACE";
-char *LOCATION_TOSPACE = "TO-SPACE";
-char *LOCATION_UNMANAGED_SPACE = "UNMANAGED SPACE";
+static char *LOCATION_GEN0_SPACE = "GEN0-SPACE";
+static char *LOCATION_FROMSPACE = "FROM-SPACE";
+static char *LOCATION_TOSPACE = "TO-SPACE";
+static char *LOCATION_UNMANAGED_SPACE = "UNMANAGED SPACE";
 
 char *describe_object_location(stella_object *obj) {
   if (!is_managed_by_gc(obj)) {
     return LOCATION_UNMANAGED_SPACE;
+  } else if (points_to_gen0_space((void*)obj)) {
+    return LOCATION_GEN0_SPACE;
   } else if (points_to_fromspace((void *)obj)) {
     return LOCATION_FROMSPACE;
   } else {

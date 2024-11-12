@@ -17,7 +17,7 @@ extern void **roots_from_gen1_to_gen0[MAX_ROOTS_FROM_GEN0_TO_GEN1];
 
 // Local roots
 void push_var_root(void **root);
-void pop_var_root(void);
+void pop_var_root(void **root);
 
 // Roots from Gen0 to Gen1
 void scan_gen0_for_roots_to_gen1(void);

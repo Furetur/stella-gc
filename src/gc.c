@@ -9,6 +9,7 @@
 #include <runtime.h>
 
 #include "constants.h"
+#include "gc/gen0.h"
 #include "gc/parameters.h"
 #include "gc/roots.h"
 #include "gc/stats.h"
@@ -25,6 +26,7 @@ void initialize_gc_if_needed(void) {
   if (gc_initialized) {
     return;
   }
+  gen0_initialize();
   gen1_initialize();
   gc_initialized = true;
 }
@@ -76,4 +78,4 @@ void gc_write_barrier(__attribute__((unused)) void *object,
 
 void gc_push_root(void **ptr) { push_var_root(ptr); }
 
-void gc_pop_root(__attribute__((unused)) void **ptr) { pop_var_root(); }
+void gc_pop_root(void **ptr) { pop_var_root(ptr); }

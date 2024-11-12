@@ -1,9 +1,18 @@
 #include <assert.h>
+#include <stdint.h>
 
+#include <stella/runtime.h>
+
+#include "gc/forward_pointers.h"
+#include "gc/gen0.h"
+#include "gc/gen1.h"
+#include "gc/parameters.h"
 #include "gc/roots.h"
 
 #include "gc/debug.h"
 #include "gc/stats.h"
+#include "gc/utils.h"
+#include "runtime_extras.h"
 
 int var_roots_next_index = 0;
 void **var_roots[MAX_VAR_ROOTS];
@@ -24,14 +33,44 @@ void push_var_root(void **ptr) {
   var_roots[var_roots_next_index++] = ptr;
 }
 
-void pop_var_root(void) {
+void pop_var_root(__attribute__((unused)) void **ptr) {
   GC_DEBUG_PRINTF("pop_var_root: Popped root %p\n", (void *)ptr);
   assert(var_roots_next_index > 0);
   var_roots_next_index--;
 }
 
+void scan_space_for_roots(void **roots[], int *next_root_index,
+                          uint8_t *space_start, uint8_t *space_end,
+                          bool (*check_belongs_to_target_space)(uint8_t *)) {
+  *next_root_index = 0;
+  uint8_t *cur_ptr = space_start;
+  while (cur_ptr < space_end) {
+    stella_object *cur_obj = (stella_object *)cur_ptr;
+    if (get_tag(cur_obj) == TAG_FORWARD_PTR) {
+      continue;
+    }
+    for (int i = 0; i < get_fields_count(cur_obj); i++) {
+      void *field = cur_obj->object_fields[i];
+      if (check_belongs_to_target_space((uint8_t *)field)) {
+        roots[*next_root_index] = &field;
+        *next_root_index = *next_root_index + 1;
+      }
+    }
+    cur_ptr += gc_size_of_object(cur_obj);
+  }
+  assert(cur_ptr == space_end);
+}
+
 // Roots from Gen0 to Gen1
-void scan_gen0_for_roots_to_gen1(void) {}
+void scan_gen0_for_roots_to_gen1(void) {
+  scan_space_for_roots(roots_from_gen0_to_gen1,
+                       &roots_from_gen0_to_gen1_next_index, gen0_space,
+                       gen0_alloc_ptr, points_to_fromspace);
+}
 
 // Roots from Gen1 to Gen0
-void scan_gen1_for_roots_to_gen0(void) {}
+void scan_gen1_for_roots_to_gen0(void) {
+  scan_space_for_roots(roots_from_gen1_to_gen0,
+                       &roots_from_gen1_to_gen0_next_index, gen1_fromspace,
+                       gen1_alloc_ptr, points_to_gen0_space);
+}
